@@ -1,0 +1,21 @@
+Raft 中有一条铁律，就是不论出于什么状态，只要发现自己所处 term 落后于人，就立即改变自己 term 变成 Follower。
+term 即为事实上的逻辑时钟，所有投票行为（Candidate 和 Voter[1]）和日志同步（Leader 和 Follower）动作需要所涉及双方在同一个 term 中。
+
+在发生 term 改变时，需要及时改变 votedFor
+Follower/Candidate 超时变为 Candidate 时，term 会增加 1，这时候先无脑投自己（rf.votedFor = rf.me），然后发起选举
+二是在收到其他 Peer 的 RPC 时（包括 Request 和 Reply），
+发现别人 term 高，变为 Follower 时，也需要及时清空自己之前投票结果（rf.votedFor = -1）以使本轮次可以继续投票。
+
+Peer 在收到 AppendEntries 时，只要自己的 term 不高于发起心跳的 Leader 的 term，都要及时变为 Follower，
+这包含以下几种情况：
+a. 如果 term 较小，则需 term 跟上，然后变 Follower；
+b. 本来为 Candidate 且 term 相同，要停止选举变为 Follower；
+c. 本来就是 Follower 且 term 相同 ，便重置下 electionTimer。
+
+关于 electionTimer 的重置：electionTimer 本质上是跟踪自己是否收到了权威 peer 的 rpc，这包含三种情况：
+a) 收到了合法 leader （合法 leader 肯定比自己权威，啥时候不合法呢，比如 term 比自己小）心跳，则重置。
+b) 投票给了 candidate（说明 candidate 的日志比自己权威），则重置。
+c) 没有发现权威的 rpc，自己变成权威，即变成 candidate，也重置。
+
+每次在收到 RPC 的 reply 时，（Candidate 和 Leader）都要检查一下此时是否和发送 RPC 之前状态一致，
+如果不一致，需要及时退出 goroutine，不在其位，不谋其政。term + role 可以唯一确定某个 Peer 的状态。
