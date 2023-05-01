@@ -1,5 +1,4 @@
-# mit-6.824-lab2
-'''c++
+```c++
 #include "Raft.h"
 #include "Thread.h"
 std::vector<std::string>ips({".","127.0.0.1","127.0.0.1","127.0.0.1"});
@@ -19,5 +18,4 @@ int main(int argc, char * const argv[]) {
     }
     raft.work();
 }
-
-'''
+```
